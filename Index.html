@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestor de Sociedade Euromilhões</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body{
+      background:#f3f4f6;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+    }
+    .nav-button{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:.5rem .75rem;
+      border-radius:.5rem;
+      font-weight:600;
+    }
+    .nav-button:hover{background:#1e40af;color:#fff}
+    .nav-button-active{background:#2563eb;color:#fff}
+    .toggle-bg{
+      position:relative;
+      transition:background-color .2s
+    }
+    .toggle-bg::after{
+      content:"";
+      position:absolute;
+      top:2px;
+      left:2px;
+      width:20px;
+      height:20px;
+      background:#fff;
+      border-radius:9999px;
+      border:1px solid #d1d5db;
+      transition:transform .2s;
+      box-shadow:0 1px 2px rgba(0,0,0,.1)
+    }
+    input:checked + .toggle-bg{background:#22c55e}
+    input:checked + .toggle-bg::after{transform:translateX(20px)}
+    .accordion-content{max-height:0;overflow:hidden;transition:max-height .25s ease}
+    .accordion-header.active + .accordion-content{max-height:2000px}
+    .chevron{transition:transform .2s}
+    .chevron.rotate-180{transform:rotate(180deg)}
+    .flash{animation:flash .9s ease}
+    @keyframes flash{
+      0%{background:#fff}
+      50%{background:#dcfce7}
+      100%{background:#fff}
+    }
+  </style>
+</head>
+<body class="text-gray-900">
+<header class="bg-gradient-to-r from-blue-800 to-indigo-900 text-white shadow">
+  <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-extrabold text-yellow-300">Gestor da Sociedade Euromilhões</h1>
+      <p class="text-sm text-blue-100">Apostas semanais, caixa, prémios e comparação de chaves — tudo guardado no teu navegador.</p>
+    </div>
+    <div class="hidden md:flex text-3xl gap-2"><span>💶</span><span>⭐</span></div>
+  </div>
+</header>
+
+<div class="container mx-auto px-4 mt-3 text-center">
+  <span id="statusMessage" class="hidden text-sm font-medium"></span>
+</div>
+
+<main class="container mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+  <!-- MENU LATERAL -->
+  <aside class="md:col-span-1">
+    <nav class="bg-blue-900 text-blue-50 rounded-lg shadow p-3 space-y-1">
+      <p class="uppercase tracking-wide text-xs text-blue-200 mb-2">Menus</p>
+      <button class="nav-button nav-button-active" data-section-target="dashboard"><span>🏠 Resumo</span></button>
+      <button class="nav-button" data-section-target="participants"><span>👥 Participantes</span></button>
+      <button class="nav-button" data-section-target="weeks"><span>📅 Apostas & Semanas</span></button>
+      <button class="nav-button" data-section-target="cash"><span>💰 Caixa & Prémios</span></button>
+      <button class="nav-button" data-section-target="settings"><span>⚙️ Definições & Ficheiros</span></button>
+      <button class="nav-button" data-section-target="charts"><span>📊 Gráficos</span></button>
+    </nav>
+  </aside>
+
+  <!-- DASHBOARD -->
+  <section id="section-dashboard" class="md:col-span-3 app-section">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500">Participantes ativos</p>
+        <p id="dashParticipants" class="text-3xl font-bold text-blue-700 mt-1">0</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500">Semanas registadas</p>
+        <p id="dashWeeks" class="text-3xl font-bold text-blue-700 mt-1">0</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500">Saldo estimado da caixa</p>
+        <p id="dashCash" class="text-3xl font-bold text-green-600 mt-1">€0,00</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500">Total apostado</p>
+        <p id="dashTotalBets" class="text-lg font-semibold">€0,00</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500">Total em prémios (semanas)</p>
+        <p id="dashTotalPrizes" class="text-lg font-semibold">€0,00</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-gray-500">Total contribuições pagas</p>
+        <p id="dashTotalContrib" class="text-lg font-semibold">€0,00</p>
+        <p class="text-[11px] text-gray-500 mt-1">Conta apenas participantes marcados <b>Pago</b>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PARTICIPANTES -->
+  <section id="section-participants" class="md:col-span-3 app-section hidden">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-xl font-semibold text-blue-700 mb-4">Gestão de Participantes</h2>
+      <form id="addParticipantForm" class="flex flex-col sm:flex-row gap-2 mb-4">
+        <input id="newParticipantName" class="flex-grow rounded-md border-gray-300 px-3 py-2" placeholder="Nome do participante" required />
+        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Adicionar</button>
+      </form>
+      <div id="participantsList" class="space-y-2"></div>
+      <p class="text-xs text-gray-500 mt-3">Podes adicionar/remover a qualquer momento; as semanas refletem automaticamente.</p>
+    </div>
+  </section>
+
+  <!-- SEMANAS & APOSTAS -->
+  <section id="section-weeks" class="md:col-span-3 app-section hidden space-y-5">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-xl font-semibold text-blue-700 mb-4">Adicionar Nova Semana / Aposta</h2>
+      <form id="addWeekForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        <div>
+          <label class="block text-sm font-medium">Semana nº</label>
+          <input id="weekNumber" type="number" step="1" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Custo total da aposta (€)</label>
+          <input id="weekCost" type="number" step="0.01" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2" placeholder="ex: 5.00" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Prémio recebido (€)</label>
+          <input id="weekWinnings" type="number" step="0.01" value="0" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium">Data do sorteio</label>
+          <input id="weekDrawDate" type="date" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2" />
+          <p class="text-[11px] text-gray-500 mt-1">Usada para ligar à chave sorteada automática.</p>
+        </div>
+
+        <div class="sm:col-span-3">
+          <label class="block text-sm font-medium mb-1">Chave jogada (opcional)</label>
+          <div class="grid grid-cols-7 gap-2">
+            <input id="n1" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="N1" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+            <input id="n2" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="N2" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+            <input id="n3" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="N3" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+            <input id="n4" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="N4" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+            <input id="n5" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="N5" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+            <input id="e1" type="number" min="1" max="12" step="1" inputmode="numeric" placeholder="E1" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+            <input id="e2" type="number" min="1" max="12" step="1" inputmode="numeric" placeholder="E2" class="rounded-md border-gray-300 px-2 py-1 text-center text-sm" autocomplete="off" />
+          </div>
+          <p class="text-[11px] text-gray-500 mt-1">5 números (1–50) e 2 estrelas (1–12). <b>Sem repetidos</b> — verificado ao guardar.</p>
+        </div>
+
+        <div class="sm:col-span-3">
+          <button class="w-full bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded-md font-semibold">Adicionar Semana</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+        <h2 class="text-xl font-semibold text-blue-700">Histórico de Semanas & Pagamentos</h2>
+        <button id="autoUpdateDrawsButton"
+                class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded-md">
+          🔄 Atualizar chaves sorteadas automaticamente
+        </button>
+      </div>
+      <p class="text-[11px] text-gray-500 mb-3">
+        Este botão lê o ficheiro <code>euromilhoes.json</code> do próprio site e atualiza as chaves sorteadas das semanas com a mesma data.
+      </p>
+      <div id="weeksList" class="space-y-3"></div>
+    </div>
+  </section>
+
+  <!-- CAIXA & PRÉMIOS -->
+  <section id="section-cash" class="md:col-span-3 app-section hidden space-y-5">
+    <div class="bg-white rounded-lg shadow p-5 text-center">
+      <h2 class="text-xl font-semibold text-blue-700 mb-2">Resumo da Caixa</h2>
+      <p class="text-xs text-gray-500">Saldo calculado (automático)</p>
+      <p id="cashBoxDisplay" class="text-4xl font-extrabold text-green-600 mt-1">€0,00</p>
+      <p class="text-[11px] text-gray-500 mt-2">Saldo inicial + contribuições marcadas Pago + prémios semanais + prémios/ajustes manuais − custo das apostas.</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-5">
+      <h3 class="text-lg font-semibold text-blue-700 mb-3">Saldo inicial / Correção manual</h3>
+      <form id="setInitialCashBoxForm" class="space-y-2">
+        <label class="text-sm font-medium">Definir / ajustar saldo inicial (€)</label>
+        <div class="flex">
+          <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">€</span>
+          <input id="initialCashBox" type="number" step="0.01" class="flex-grow rounded-none border-gray-300 px-3 py-2" placeholder="0.00" />
+          <button class="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-3 py-2 rounded-r-md font-medium text-sm">Guardar</button>
+        </div>
+        <p class="text-[11px] text-gray-500">Usa para alinhar com a realidade (início/ajustes).</p>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-5">
+      <h3 class="text-lg font-semibold text-blue-700 mb-3">Prémios & Movimentos Manuais</h3>
+      <form id="extraMovementForm" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end mb-4">
+        <div>
+          <label class="block text-sm font-medium">Tipo</label>
+          <select id="movementType" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2 text-sm">
+            <option value="premio">Prémio extra</option>
+            <option value="ajuste">Ajuste manual</option>
+          </select>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium">Descrição</label>
+          <input id="movementDescription" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2 text-sm" placeholder="Ex.: prémio especial, correção" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Valor (€)</label>
+          <input id="movementAmount" type="number" step="0.01" class="mt-1 w-full rounded-md border-gray-300 px-3 py-2 text-sm" required />
+        </div>
+        <div class="sm:col-span-4">
+          <button class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm">Registar movimento</button>
+        </div>
+      </form>
+      <div id="extraMovementsList" class="divide-y divide-gray-100"></div>
+      <p class="text-[11px] text-gray-500 mt-3">Os prémios inseridos na semana entram automaticamente. Este quadro é para extras/ajustes.</p>
+    </div>
+  </section>
+
+  <!-- DEFINIÇÕES & FICHEIROS -->
+  <section id="section-settings" class="md:col-span-3 app-section hidden space-y-5">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-xl font-semibold text-blue-700 mb-4">Definições Gerais</h2>
+      <form id="settingsForm" class="space-y-4">
+        <div>
+          <label class="text-sm font-medium">Valor total da aposta semanal (€)</label>
+          <div class="flex mt-1">
+            <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">€</span>
+            <input id="ticketCost" type="number" step="0.01" class="flex-grow rounded-none border-gray-300 px-3 py-2" placeholder="5.00" />
+          </div>
+        </div>
+        <div>
+          <label class="text-sm font-medium">Contribuição semanal por participante para a caixa (€)</label>
+          <div class="flex mt-1">
+            <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">€</span>
+            <input id="individualContribution" type="number" step="0.01" class="flex-grow rounded-none border-gray-300 px-3 py-2" placeholder="ex.: 0.60" />
+          </div>
+          <p class="text-[11px] text-gray-500 mt-1">Conta apenas quem está marcado <b>Pago</b> na semana.</p>
+        </div>
+        <button class="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded-md font-medium text-sm">Guardar definições</button>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-xl font-semibold text-blue-700 mb-3">Importar / Exportar</h2>
+      <div class="space-y-3">
+        <button id="exportButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium text-sm">Exportar backup (JSON)</button>
+        <label class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium text-sm cursor-pointer text-center block">
+          Importar backup (JSON)
+          <input id="importFile" type="file" class="hidden" accept=".json,application/json" />
+        </label>
+      </div>
+      <p class="text-[11px] text-gray-500 mt-3">
+        O ficheiro <code>euromilhoes.json</code> é atualizado automaticamente pelo GitHub Actions com os últimos sorteios do Euromilhões.
+      </p>
+    </div>
+  </section>
+
+  <!-- GRÁFICOS -->
+  <section id="section-charts" class="md:col-span-3 app-section hidden space-y-5">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-xl font-semibold text-blue-700 mb-3">Gráficos</h2>
+      <p id="chartsEmptyMessage" class="text-xs text-gray-500">Adiciona pelo menos uma semana para ver os gráficos.</p>
+      <div id="chartsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden mt-3">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Evolução da caixa (sem saldo inicial/ajustes)</h3>
+          <canvas id="cashChart" height="220"></canvas>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Aposta, prémios e contribuições pagas por semana</h3>
+          <canvas id="betsChart" height="220"></canvas>
+        </div>
+      </div>
+      <p class="text-[11px] text-gray-500 mt-3">Saldo final considera saldo inicial e ajustes, mas os gráficos mostram apenas a dinâmica semanal.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const sections = document.querySelectorAll('.app-section');
+  const navButtons = document.querySelectorAll('[data-section-target]');
+  const statusMessage = document.getElementById('statusMessage');
+
+  const participantsListEl = document.getElementById('participantsList');
+  const addParticipantForm = document.getElementById('addParticipantForm');
+  const newParticipantNameInput = document.getElementById('newParticipantName');
+
+  const addWeekForm = document.getElementById('addWeekForm');
+  const weekNumberInput = document.getElementById('weekNumber');
+  const weekCostInput = document.getElementById('weekCost');
+  const weekWinningsInput = document.getElementById('weekWinnings');
+  const weekDrawDateInput = document.getElementById('weekDrawDate');
+  const weeksListEl = document.getElementById('weeksList');
+  const autoUpdateDrawsButton = document.getElementById('autoUpdateDrawsButton');
+
+  const cashBoxDisplayEl = document.getElementById('cashBoxDisplay');
+  const setInitialCashBoxForm = document.getElementById('setInitialCashBoxForm');
+  const initialCashBoxInput = document.getElementById('initialCashBox');
+
+  const extraMovementForm = document.getElementById('extraMovementForm');
+  const movementTypeInput = document.getElementById('movementType');
+  const movementDescriptionInput = document.getElementById('movementDescription');
+  const movementAmountInput = document.getElementById('movementAmount');
+  const extraMovementsListEl = document.getElementById('extraMovementsList');
+
+  const settingsForm = document.getElementById('settingsForm');
+  const ticketCostInput = document.getElementById('ticketCost');
+  const individualContributionInput = document.getElementById('individualContribution');
+
+  const exportButton = document.getElementById('exportButton');
+  const importFileInput = document.getElementById('importFile');
+
+  const dashParticipantsEl = document.getElementById('dashParticipants');
+  const dashWeeksEl = document.getElementById('dashWeeks');
+  const dashCashEl = document.getElementById('dashCash');
+  const dashTotalBetsEl = document.getElementById('dashTotalBets');
+  const dashTotalPrizesEl = document.getElementById('dashTotalPrizes');
+  const dashTotalContribEl = document.getElementById('dashTotalContrib');
+
+  const chartsEmptyMessageEl = document.getElementById('chartsEmptyMessage');
+  const chartsGridEl = document.getElementById('chartsGrid');
+  const cashChartCanvas = document.getElementById('cashChart');
+  const betsChartCanvas = document.getElementById('betsChart');
+
+  let cashChartInstance = null;
+  let betsChartInstance = null;
+
+  // manter estado de semanas abertas (não colapsar quando clicas em Pago/Não Pago)
+  let openWeekIds = new Set();
+
+  const DRAW_API_URL = 'euromilhoes.json'; // ficheiro gerado pelo GitHub Actions
+
+  const DB_KEYS = {
+    PARTICIPANTS: 'euromilhoes_participants',
+    WEEKS: 'euromilhoes_weeks',
+    SUMMARY: 'euromilhoes_summary'
+  };
+
+  function dbGet(key, def = []) {
+    try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : def; } catch { return def; }
+  }
+  function dbSet(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch {} }
+
+  let localParticipants = [];
+  let localWeeks = [];
+  let localSummary = {};
+
+  function showStatus(msg, isError=false){
+    statusMessage.textContent = msg;
+    statusMessage.classList.remove('hidden','text-green-600','text-red-600');
+    statusMessage.classList.add(isError?'text-red-600':'text-green-600');
+    setTimeout(()=>statusMessage.classList.add('hidden'),2500);
+  }
+
+  function loadAllData() {
+    localParticipants = dbGet(DB_KEYS.PARTICIPANTS, []);
+    if (localParticipants.length===0){
+      localParticipants = ['Madalena','Rute','Pedro','João','Ricardo','Júlio','Tânia','Sílvia','Fábio'].map(n=>({id:crypto.randomUUID(),name:n}));
+      dbSet(DB_KEYS.PARTICIPANTS, localParticipants);
+    }
+    localWeeks = dbGet(DB_KEYS.WEEKS, []).map(w => {
+      w.data = w.data || {};
+      w.data.payments = w.data.payments || {};
+      if(!w.data.drawnNumbers){ w.data.drawnNumbers = {main:[],stars:[]}; }
+      return w;
+    });
+    const s = dbGet(DB_KEYS.SUMMARY, {});
+    localSummary = {
+      initialCashBox: typeof s.initialCashBox==='number'?s.initialCashBox:0,
+      individualContribution: typeof s.individualContribution==='number'?s.individualContribution:0,
+      ticketCost: typeof s.ticketCost==='number'?s.ticketCost:5,
+      extraMovements: Array.isArray(s.extraMovements)?s.extraMovements:[]
+    };
+    initialCashBoxInput.value = localSummary.initialCashBox.toFixed(2);
+    individualContributionInput.value = localSummary.individualContribution.toFixed(2);
+    ticketCostInput.value = localSummary.ticketCost.toFixed(2);
+    if(!weekCostInput.value) weekCostInput.value = localSummary.ticketCost.toFixed(2);
+  }
+  function saveAll(){ dbSet(DB_KEYS.PARTICIPANTS,localParticipants); dbSet(DB_KEYS.WEEKS,localWeeks); dbSet(DB_KEYS.SUMMARY,localSummary); }
+
+  function getTier(main,stars){
+    const t = {
+      '5-2':'1.º prémio (Jackpot)','5-1':'2.º prémio','5-0':'3.º prémio',
+      '4-2':'4.º prémio','4-1':'5.º prémio','3-2':'6.º prémio',
+      '4-0':'7.º prémio','2-2':'8.º prémio','3-1':'9.º prémio',
+      '3-0':'10.º prémio','1-2':'11.º prémio','2-1':'12.º prémio','2-0':'13.º prémio'
+    };
+    const k = `${main}-${stars}`; return t[k]||null;
+  }
+
+  function calcStats(){
+    const contrib = localSummary.individualContribution||0;
+    let totalCosts=0,totalWinnings=0,totalContrib=0;
+    localWeeks.forEach(w=>{
+      const d=w.data||{};
+      totalCosts += d.cost||0;
+      totalWinnings += d.winnings||0;
+      const paidCount = Object.values(d.payments||{}).filter(Boolean).length;
+      totalContrib += paidCount*contrib;
+    });
+    const extra = (localSummary.extraMovements||[]).reduce((s,m)=>s+(m.amount||0),0);
+    const automaticCash = (localSummary.initialCashBox||0) + totalContrib + totalWinnings - totalCosts + extra;
+    return { totalCosts,totalWinnings,totalContrib,automaticCash };
+  }
+
+  function renderDashboard(){
+    const s = calcStats();
+    dashParticipantsEl.textContent = localParticipants.length;
+    dashWeeksEl.textContent = localWeeks.length;
+    dashCashEl.textContent = '€'+s.automaticCash.toFixed(2);
+    dashTotalBetsEl.textContent = '€'+s.totalCosts.toFixed(2);
+    dashTotalPrizesEl.textContent = '€'+s.totalWinnings.toFixed(2);
+    dashTotalContribEl.textContent = '€'+s.totalContrib.toFixed(2);
+  }
+
+  function renderParticipants(){
+    participantsListEl.innerHTML='';
+    if(localParticipants.length===0){
+      participantsListEl.innerHTML='<p class="text-gray-500 text-sm">Nenhum participante.</p>'; return;
+    }
+    localParticipants.forEach(p=>{
+      const row=document.createElement('div');
+      row.className='flex justify-between items-center bg-gray-50 px-3 py-2 rounded-md';
+      row.innerHTML=`<span class="font-medium">${p.name}</span>
+      <button data-id="${p.id}" class="delete-participant text-red-500 hover:text-red-700 text-xs">Remover</button>`;
+      participantsListEl.appendChild(row);
+    });
+  }
+
+  function renderWeeks(){
+    weeksListEl.innerHTML='';
+    if(localWeeks.length===0){
+      weeksListEl.innerHTML='<p class="text-gray-500 text-sm">Ainda não existem semanas.</p>'; return;
+    }
+
+    const contrib = localSummary.individualContribution||0;
+    const numP = localParticipants.length;
+    const sorted=[...localWeeks].sort((a,b)=>b.data.weekNumber-a.data.weekNumber);
+
+    sorted.forEach(week=>{
+      const id=week.id; const d=week.data||{};
+      d.payments=d.payments||{};
+      localParticipants.forEach(p=>{ if(typeof d.payments[p.id]!=='boolean') d.payments[p.id]=false; });
+
+      const cost=d.cost||0, winnings=d.winnings||0;
+      const costPerPerson = numP>0 ? cost/numP : 0;
+      const totalPerPerson = costPerPerson+contrib;
+      const values=Object.values(d.payments);
+      const paidCount=values.filter(Boolean).length;
+      const unpaidCount=numP-paidCount;
+      const weekProfit=winnings-cost;
+      const caixaTotal=numP*contrib, caixaPago=paidCount*contrib, caixaFalta=unpaidCount*contrib;
+
+      const drawDateText = d.drawDate ? d.drawDate : '—';
+
+      const playedMain = Array.isArray(d.numbers?.main)?d.numbers.main:[];
+      const playedStars = Array.isArray(d.numbers?.stars)?d.numbers.stars:[];
+      const numbersText = `${playedMain.length?playedMain.join(' - '):'—'} ⭐ ${playedStars.length?playedStars.join(' - '):'—'}`;
+
+      const drawnMain = Array.isArray(d.drawnNumbers?.main)?d.drawnNumbers.main.slice():[];
+      const drawnStars = Array.isArray(d.drawnNumbers?.stars)?d.drawnNumbers.stars.slice():[];
+      const drawnText = `${drawnMain.length?drawnMain.join(' - '):'—'} ⭐ ${drawnStars.length?drawnStars.join(' - '):'—'}`;
+
+      let prizeSummaryHtml='';
+      if(drawnMain.length||drawnStars.length){
+        if(!playedMain.length && !playedStars.length){
+          prizeSummaryHtml = `<p class="text-[11px] text-gray-500 mt-1">Sem chave jogada — não é possível comparar.</p>`;
+        }else{
+          const mSet=new Set(drawnMain), sSet=new Set(drawnStars);
+          const m=playedMain.filter(n=>mSet.has(n)).length;
+          const s=playedStars.filter(n=>sSet.has(n)).length;
+          const tier = getTier(m,s);
+          if(m===0 && s===0){
+            prizeSummaryHtml = `<p class="text-[11px] text-gray-500 mt-1">Sem acertos nesta semana.</p>`;
+          }else{
+            prizeSummaryHtml = `<p class="text-[11px] text-gray-700 mt-1"><b>Acertos:</b> ${m} número(s) e ${s} estrela(s). ${tier?`<span class="ml-1 text-gray-600">(Categoria possível: ${tier}).</span>`:'<span class="ml-1 text-gray-500">(combinação sem prémio típico)</span>'}<br><span class="text-[10px] text-gray-400">Confirma sempre nos resultados oficiais.</span></p>`;
+          }
+        }
+      }
+
+      let paymentsHtml='';
+      localParticipants.forEach(p=>{
+        const isPaid=!!d.payments[p.id];
+        paymentsHtml += `<div class="flex justify-between items-center py-1">
+          <span>${p.name}</span>
+          <label class="flex items-center cursor-pointer">
+            <span class="mr-2 text-xs ${isPaid?'text-green-600 font-medium':'text-red-600'}">${isPaid?'Pago':'Não Pago'}</span>
+            <div class="relative">
+              <input type="checkbox" class="sr-only payment-toggle" data-week-id="${id}" data-participant-id="${p.id}" ${isPaid?'checked':''}>
+              <div class="toggle-bg bg-gray-200 border-2 h-6 w-11 rounded-full"></div>
+            </div>
+          </label>
+        </div>`;
+      });
+
+      const isOpen = openWeekIds.has(id);
+      const container=document.createElement('div');
+      container.className='border border-gray-200 rounded-md bg-white';
+      container.dataset.weekId=id;
+
+      const headerCls = 'accordion-header bg-gray-50 px-4 py-3 flex items-center justify-between cursor-pointer rounded-t-md'+(isOpen?' active':'');
+      const chevCls = isOpen ? ' rotate-180' : '';
+
+      container.innerHTML = `
+        <div class="${headerCls}">
+          <div>
+            <p class="font-semibold text-blue-700">Semana ${d.weekNumber}</p>
+            <p class="text-xs text-gray-500">
+              Aposta: €${cost.toFixed(2)} · Prémio: €${winnings.toFixed(2)}
+            </p>
+            <p class="text-[11px] text-gray-400">
+              Data do sorteio: <span class="font-mono">${drawDateText}</span>
+            </p>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="text-xs font-medium ${weekProfit>=0?'text-green-600':'text-red-600'}">${weekProfit>=0?'+':''}€${weekProfit.toFixed(2)}</span>
+            <svg class="w-5 h-5 text-gray-500 chevron${chevCls}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </div>
+        </div>
+        <div class="accordion-content px-4 pb-4 pt-2 border-t border-gray-200 rounded-b-md bg-white">
+          <p class="text-sm text-gray-700 mb-1"><span class="font-medium">Chave jogada:</span> <span class="ml-1 font-mono text-gray-900">${numbersText}</span></p>
+
+          <div class="mb-3">
+            <p class="text-xs font-medium text-gray-700 mb-1">Chave sorteada (preencher ou atualizar automaticamente)</p>
+            <div class="grid grid-cols-7 gap-2" data-draw-group="${id}">
+              ${[0,1,2,3,4].map(i=>`
+                <input type="number" min="1" max="50" step="1" inputmode="numeric"
+                  class="rounded-md border-gray-300 px-2 py-1 text-center text-xs draw-input"
+                  data-week-id="${id}" data-draw-type="main" data-index="${i}"
+                  value="${drawnMain[i]!==undefined?drawnMain[i]:''}" placeholder="N${i+1}">
+              `).join('')}
+              ${[0,1].map(i=>`
+                <input type="number" min="1" max="12" step="1" inputmode="numeric"
+                  class="rounded-md border-gray-300 px-2 py-1 text-center text-xs draw-input"
+                  data-week-id="${id}" data-draw-type="star" data-index="${i}"
+                  value="${drawnStars[i]!==undefined?drawnStars[i]:''}" placeholder="E${i+1}">
+              `).join('')}
+            </div>
+            <div class="flex gap-2 mt-2">
+              <button class="save-draw bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded-md" data-week-id="${id}">Guardar chave sorteada</button>
+              <button class="clear-draw bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs px-3 py-1 rounded-md" data-week-id="${id}">Limpar</button>
+            </div>
+            ${ (drawnMain.length||drawnStars.length) ? `
+              <p class="text-[11px] text-gray-600 mt-1">
+                <span class="font-medium">Chave sorteada registada:</span>
+                <span class="ml-1 font-mono text-gray-900">${drawnText}</span>
+              </p>` : ''
+            }
+            ${prizeSummaryHtml}
+          </div>
+
+          <p class="text-xs text-gray-500 mb-3">Total por pessoa: aposta €${costPerPerson.toFixed(2)} + caixa €${contrib.toFixed(2)} = <span class="font-semibold">€${totalPerPerson.toFixed(2)}</span></p>
+
+          <div class="payment-controls space-y-2 mb-3">${paymentsHtml}</div>
+
+          <div class="text-xs text-gray-600 border-t border-dashed pt-2">
+            <p>Pagamentos: ${paidCount}/${numP} (total pago: €${(paidCount*totalPerPerson).toFixed(2)}).</p>
+            <p>Pendente: ${unpaidCount} (em falta: €${(unpaidCount*totalPerPerson).toFixed(2)}).</p>
+            <p class="mt-1"><b>Caixa desta semana:</b> total €${caixaTotal.toFixed(2)} (pago: €${caixaPago.toFixed(2)} · em falta: €${caixaFalta.toFixed(2)}).</p>
+          </div>
+
+          <button data-id="${id}" class="delete-week mt-3 text-xs text-red-600 hover:text-red-800">Remover semana</button>
+        </div>
+      `;
+      weeksListEl.appendChild(container);
+    });
+  }
+
+  function renderExtraMovements(){
+    extraMovementsListEl.innerHTML='';
+    const ms=localSummary.extraMovements||[];
+    if(ms.length===0){
+      extraMovementsListEl.innerHTML='<p class="text-xs text-gray-500">Sem movimentos.</p>'; return;
+    }
+    ms.forEach(m=>{
+      const row=document.createElement('div');
+      row.className='flex justify-between items-start py-2 text-sm';
+      const signClass=(m.amount||0)>=0?'text-green-600':'text-red-600';
+      row.innerHTML=`<div><p class="font-medium text-gray-800">${m.type==='ajuste'?'Ajuste':'Prémio'}</p><p class="text-xs text-gray-500">${m.description||''}</p></div>
+        <div class="text-right"><p class="font-mono ${signClass}">€${(m.amount||0).toFixed(2)}</p>
+        <button class="text-[11px] text-gray-400 hover:text-red-600 remove-movement" data-id="${m.id}">remover</button></div>`;
+      extraMovementsListEl.appendChild(row);
+    });
+  }
+
+  function renderCash(){
+    const s=calcStats();
+    cashBoxDisplayEl.textContent='€'+s.automaticCash.toFixed(2);
+    cashBoxDisplayEl.className='text-4xl font-extrabold '+(s.automaticCash>=0?'text-green-600':'text-red-600');
+  }
+
+  function renderAll(){ renderParticipants(); renderWeeks(); renderExtraMovements(); renderCash(); renderDashboard(); }
+
+  function getWeekStatsForChart(){
+    const c = localSummary.individualContribution||0;
+    const sorted=[...localWeeks].sort((a,b)=>a.data.weekNumber-b.data.weekNumber);
+    const labels=[], costV=[], winV=[], contribV=[], cumV=[]; let cum=0;
+    sorted.forEach(w=>{
+      const d=w.data||{}, cost=d.cost||0, win=d.winnings||0;
+      const paidCount = Object.values(d.payments||{}).filter(Boolean).length;
+      const contrib = paidCount*c;
+      const net = contrib + win - cost; cum += net;
+      labels.push('S'+d.weekNumber); costV.push(cost); winV.push(win); contribV.push(contrib); cumV.push(cum);
+    });
+    return {labels,costV,winV,contribV,cumV};
+  }
+
+  function renderCharts(){
+    const {labels,costV,winV,contribV,cumV}=getWeekStatsForChart();
+    if(labels.length===0){
+      chartsEmptyMessageEl.classList.remove('hidden');
+      chartsGridEl.classList.add('hidden');
+      if(cashChartInstance){cashChartInstance.destroy(); cashChartInstance=null;}
+      if(betsChartInstance){betsChartInstance.destroy(); betsChartInstance=null;}
+      return;
+    }
+    chartsEmptyMessageEl.classList.add('hidden');
+    chartsGridEl.classList.remove('hidden');
+
+    if(cashChartInstance) cashChartInstance.destroy();
+    if(betsChartInstance) betsChartInstance.destroy();
+
+    cashChartInstance = new Chart(cashChartCanvas.getContext('2d'), {
+      type:'line', data:{labels,datasets:[{label:'Saldo acumulado (sem saldo inicial/ajustes)',data:cumV,tension:.3}]},
+      options:{plugins:{legend:{display:true}}, scales:{y:{beginAtZero:true}}}
+    });
+    betsChartInstance = new Chart(betsChartCanvas.getContext('2d'), {
+      type:'bar', data:{labels,datasets:[
+        {label:'Aposta (€)',data:costV},
+        {label:'Prémios (€)',data:winV},
+        {label:'Contribuições pagas (€)',data:contribV}
+      ]},
+      options:{plugins:{legend:{display:true}}, scales:{y:{beginAtZero:true}}}
+    });
+  }
+
+  function setActiveSection(name){
+    document.querySelectorAll('.app-section').forEach(sec=>{
+      sec.id==='section-'+name ? sec.classList.remove('hidden') : sec.classList.add('hidden');
+    });
+    navButtons.forEach(btn=>{
+      btn.dataset.sectionTarget===name ? btn.classList.add('nav-button-active') : btn.classList.remove('nav-button-active');
+    });
+    if(name==='charts') renderCharts();
+  }
+  navButtons.forEach(btn=>btn.addEventListener('click',()=>setActiveSection(btn.dataset.sectionTarget)));
+
+  /* ========= Validação utilitária ========= */
+  function inRangeMain(v){ return Number.isInteger(v) && v>=1 && v<=50; }
+  function inRangeStar(v){ return Number.isInteger(v) && v>=1 && v<=12; }
+
+  /* ======== ADICIONAR SEMANA (valida só ao guardar) ======== */
+  if(addWeekForm){
+    addWeekForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      const weekNumber=parseInt(weekNumberInput.value,10);
+      const cost=parseFloat((weekCostInput.value||'').replace(',','.'));
+      const winnings=parseFloat((weekWinningsInput.value||'0').replace(',','.'))||0;
+      const drawDate = (weekDrawDateInput.value || '').trim() || null;
+      if(isNaN(weekNumber)||isNaN(cost)) return showStatus('Preenche semana e custo da aposta.',true);
+
+      // ler chave jogada (sem bloquear escrita durante o input)
+      const ids = ['n1','n2','n3','n4','n5','e1','e2'];
+      const main=[], stars=[];
+      ids.forEach((id,idx)=>{
+        const el=document.getElementById(id);
+        if(el && el.value.trim()!==''){
+          const n = parseInt(el.value.trim(),10);
+          if(!isNaN(n)){
+            if(idx<5){
+              if(!inRangeMain(n)) return;
+              main.push(n);
+            }else{
+              if(!inRangeStar(n)) return;
+              stars.push(n);
+            }
+          }
+        }
+      });
+
+      // validação final (duplicados/intervalos)
+      if(main.some(v=>!inRangeMain(v)) || stars.some(v=>!inRangeStar(v))){
+        return showStatus('Chave jogada fora do intervalo (números 1–50; estrelas 1–12).', true);
+      }
+      if(new Set(main).size!==main.length){
+        return showStatus('Há números repetidos nos 5 números da chave jogada.', true);
+      }
+      if(new Set(stars).size!==stars.length){
+        return showStatus('Há números repetidos nas estrelas da chave jogada.', true);
+      }
+
+      const w={ id:crypto.randomUUID(), data:{ weekNumber, cost, winnings, drawDate, numbers:{main,stars}, payments:{}, drawnNumbers:{main:[],stars:[]} } };
+      localParticipants.forEach(p=>w.data.payments[p.id]=false);
+      localWeeks.push(w); saveAll(); renderAll();
+
+      addWeekForm.reset();
+      weekCostInput.value=(Number.isFinite(localSummary.ticketCost)?localSummary.ticketCost:5).toFixed(2);
+      weekWinningsInput.value='0';
+      showStatus('Semana adicionada.');
+      addWeekForm.classList.add('flash'); setTimeout(()=>addWeekForm.classList.remove('flash'),900);
+    });
+  }
+
+  /* ======== LISTA DE SEMANAS ======== */
+  if(weeksListEl){
+    weeksListEl.addEventListener('click',e=>{
+      const toggle=e.target.closest('.payment-toggle');
+      if(toggle){
+        e.stopPropagation();
+        const weekId=toggle.dataset.weekId, pid=toggle.dataset.participantId, st=toggle.checked;
+        const w=localWeeks.find(x=>x.id===weekId); if(w){
+          w.data=w.data||{}; w.data.payments=w.data.payments||{}; w.data.payments[pid]=st;
+          saveAll(); renderWeeks(); renderCash(); renderDashboard(); renderCharts();
+        }
+        return;
+      }
+      const header=e.target.closest('.accordion-header');
+      if(header){
+        const container=header.closest('[data-week-id]'); const id=container?container.dataset.weekId:null;
+        const active=header.classList.toggle('active'); const ch=header.querySelector('.chevron'); if(ch) ch.classList.toggle('rotate-180');
+        if(id){ active?openWeekIds.add(id):openWeekIds.delete(id); }
+        return;
+      }
+      const del=e.target.closest('.delete-week');
+      if(del){
+        const id=del.dataset.id; localWeeks=localWeeks.filter(w=>w.id!==id); openWeekIds.delete(id); saveAll(); renderAll(); showStatus('Semana removida.'); return;
+      }
+      const saveDraw=e.target.closest('.save-draw');
+      if(saveDraw){
+        const id=saveDraw.dataset.weekId;
+        const group = weeksListEl.querySelector(`[data-draw-group="${id}"]`);
+        if(!group) return;
+
+        const mainInputs = [...group.querySelectorAll('.draw-input[data-draw-type="main"]')];
+        const starInputs = [...group.querySelectorAll('.draw-input[data-draw-type="star"]')];
+
+        const main=[], stars=[], seenM=new Set(), seenS=new Set();
+
+        for(const inp of mainInputs){
+          const t=(inp.value||'').trim(); if(!t) continue;
+          const n=parseInt(t,10);
+          if(!inRangeMain(n)) return showStatus('Números sorteados devem estar entre 1 e 50.',true);
+          if(seenM.has(n)) return showStatus('Número repetido nos 5 números da chave sorteada.',true);
+          seenM.add(n); main.push(n);
+        }
+        for(const inp of starInputs){
+          const t=(inp.value||'').trim(); if(!t) continue;
+          const n=parseInt(t,10);
+          if(!inRangeStar(n)) return showStatus('Estrelas sorteadas devem estar entre 1 e 12.',true);
+          if(seenS.has(n)) return showStatus('Estrela repetida na chave sorteada.',true);
+          seenS.add(n); stars.push(n);
+        }
+
+        const w=localWeeks.find(x=>x.id===id); if(!w) return;
+        w.data=w.data||{}; w.data.drawnNumbers={ main, stars };
+        saveAll(); renderWeeks(); renderCharts(); showStatus('Chave sorteada guardada.');
+        return;
+      }
+      const clearDraw=e.target.closest('.clear-draw');
+      if(clearDraw){
+        const id=clearDraw.dataset.weekId;
+        const w=localWeeks.find(x=>x.id===id); if(!w) return;
+        w.data=w.data||{}; w.data.drawnNumbers={main:[],stars:[]};
+        saveAll(); renderWeeks(); renderCharts(); showStatus('Chave sorteada limpa.');
+        return;
+      }
+    });
+  }
+
+  /* ======== AUTO UPDATE Sorteios via euromilhoes.json ======== */
+  async function atualizarChavesSorteadasAutomaticamente(){
+    try{
+      const res = await fetch(DRAW_API_URL,{cache:'no-cache'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const json = await res.json();
+
+      const draws = Array.isArray(json) ? json : (Array.isArray(json.draws)?json.draws:[]);
+      if(!draws.length){
+        showStatus('Ficheiro euromilhoes.json não tem sorteios válidos.',true);
+        return;
+      }
+
+      const byDate = {};
+      draws.forEach(dr=>{
+        if(!dr) return;
+        const date = (dr.date || dr.draw_date || dr.drawDate || '').toString().slice(0,10);
+        const main = (dr.main || dr.numbers || dr.balls || []).map(Number).filter(inRangeMain).slice(0,5);
+        const stars = (dr.stars || dr.lucky_stars || dr.luckyStars || []).map(Number).filter(inRangeStar).slice(0,2);
+        if(date && main.length && stars.length){
+          byDate[date] = { main, stars };
+        }
+      });
+
+      let updates=0;
+      localWeeks.forEach(w=>{
+        const d=w.data||{};
+        if(!d.drawDate) return;
+        const key=d.drawDate.toString().slice(0,10);
+        const dr=byDate[key];
+        if(!dr) return;
+        d.drawnNumbers = { main: dr.main, stars: dr.stars };
+        updates++;
+      });
+
+      if(updates===0){
+        showStatus('Nenhuma semana corresponde às datas do ficheiro euromilhoes.json.',true);
+      }else{
+        saveAll();
+        renderWeeks();
+        renderCharts();
+        showStatus('Chaves sorteadas atualizadas para '+updates+' semana(s).');
+      }
+    }catch(e){
+      console.error(e);
+      showStatus('Erro ao ler o ficheiro euromilhoes.json.',true);
+    }
+  }
+  if(autoUpdateDrawsButton){
+    autoUpdateDrawsButton.addEventListener('click',e=>{
+      e.preventDefault();
+      atualizarChavesSorteadasAutomaticamente();
+    });
+  }
+
+  /* ======== Participantes / Definições / Caixa ======== */
+  function renderCash(){
+    const s=calcStats();
+    cashBoxDisplayEl.textContent='€'+s.automaticCash.toFixed(2);
+    cashBoxDisplayEl.className='text-4xl font-extrabold '+(s.automaticCash>=0?'text-green-600':'text-red-600');
+  }
+  function renderAll(){ renderParticipants(); renderWeeks(); renderExtraMovements(); renderCash(); renderDashboard(); }
+
+  if(addParticipantForm){
+    addParticipantForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      const name=(newParticipantNameInput.value||'').trim(); if(!name) return;
+      const np={id:crypto.randomUUID(),name};
+      localParticipants.push(np);
+      newParticipantNameInput.value='';
+      localWeeks.forEach(w=>{ w.data=w.data||{}; w.data.payments=w.data.payments||{}; if(typeof w.data.payments[np.id]!=='boolean') w.data.payments[np.id]=false; });
+      saveAll(); renderAll(); showStatus('Participante adicionado.');
+      addParticipantForm.classList.add('flash'); setTimeout(()=>addParticipantForm.classList.remove('flash'),900);
+    });
+  }
+
+  if(participantsListEl){
+    participantsListEl.addEventListener('click',e=>{
+      const btn=e.target.closest('.delete-participant'); if(!btn) return;
+      const id=btn.dataset.id;
+      localParticipants=localParticipants.filter(p=>p.id!==id);
+      localWeeks.forEach(w=>{ if(w.data?.payments) delete w.data.payments[id]; });
+      saveAll(); renderAll(); showStatus('Participante removido.');
+    });
+  }
+
+  if(setInitialCashBoxForm){
+    setInitialCashBoxForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      const v=parseFloat((initialCashBoxInput.value||'').replace(',','.'));
+      if(isNaN(v)) return showStatus('Valor inválido para saldo inicial.',true);
+      localSummary.initialCashBox=v; saveAll(); renderCash(); renderDashboard(); showStatus('Saldo inicial atualizado.');
+      setInitialCashBoxForm.classList.add('flash'); setTimeout(()=>setInitialCashBoxForm.classList.remove('flash'),900);
+    });
+  }
+
+  if(settingsForm){
+    settingsForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      const t=parseFloat((ticketCostInput.value||'').replace(',','.'));
+      const c=parseFloat((individualContributionInput.value||'').replace(',','.'));
+      if(isNaN(t)||t<0) return showStatus('Valor inválido para aposta semanal.',true);
+      if(isNaN(c)||c<0) return showStatus('Valor inválido para contribuição individual.',true);
+      localSummary.ticketCost=t; localSummary.individualContribution=c; saveAll();
+      if(!weekCostInput.value) weekCostInput.value=t.toFixed(2);
+      renderAll(); showStatus('Definições guardadas.');
+      settingsForm.classList.add('flash'); setTimeout(()=>settingsForm.classList.remove('flash'),900);
+    });
+  }
+
+  if(extraMovementForm){
+    extraMovementForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      const type=movementTypeInput.value==='ajuste'?'ajuste':'premio';
+      const desc=(movementDescriptionInput.value||'').trim();
+      const val=parseFloat((movementAmountInput.value||'').replace(',','.'));
+      if(isNaN(val)) return showStatus('Valor inválido.',true);
+      localSummary.extraMovements=localSummary.extraMovements||[];
+      localSummary.extraMovements.push({id:crypto.randomUUID(),type,description:desc,amount:val});
+      movementDescriptionInput.value=''; movementAmountInput.value='';
+      saveAll(); renderExtraMovements(); renderCash(); renderDashboard(); showStatus('Movimento registado.');
+      extraMovementForm.classList.add('flash'); setTimeout(()=>extraMovementForm.classList.remove('flash'),900);
+    });
+  }
+
+  if(extraMovementsListEl){
+    extraMovementsListEl.addEventListener('click',e=>{
+      const rm=e.target.closest('.remove-movement'); if(!rm) return;
+      const id=rm.dataset.id;
+      localSummary.extraMovements=(localSummary.extraMovements||[]).filter(m=>m.id!==id);
+      saveAll(); renderExtraMovements(); renderCash(); renderDashboard(); showStatus('Movimento removido.');
+    });
+  }
+
+  // inicialização
+  loadAllData(); renderAll(); setActiveSection('dashboard');
+});
+</script>
+</body>
+</html>
